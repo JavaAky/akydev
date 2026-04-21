@@ -1,0 +1,2191 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>AKY DEV — Minecraft Plugin Studio</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+  <style>
+    @font-face {
+      font-family: 'Akedopikuseru';
+      src: url('assets/font/Akedopikuseru-Regular.otf') format('opentype');
+      font-weight: normal;
+      font-style: normal;
+      font-display: swap;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      /* Palette: "Дождь за окном" — пасмурная сине-голубая */
+      --bg:            #1A2430;   /* тёмное пасмурное небо */
+      --bg-deep:       #121A24;   /* глубина, почти грозовое */
+      --bg-elev:       #233141;   /* стекло с дождём — карточки */
+      --bg-elev-2:     #2C3C4F;   /* hover карточек */
+      --text:          #DCE7F2;   /* свет, отражённый от мокрого асфальта */
+      --text-strong:   #F0F6FB;   /* капля на стекле */
+      --muted:         #8CA4BD;   /* туман */
+      --subtle:        #5A708A;   /* далёкий силуэт */
+      --accent:        #7BA0C4;   /* дымчато-голубой */
+      --accent-soft:   #9FB8D0;   /* воздух после дождя */
+      --accent-warm:   #B4C9DC;   /* морозный серебристый блик */
+      --border:        rgba(156,184,208,0.12);
+      --border-hover:  rgba(156,184,208,0.26);
+      --border-strong: rgba(156,184,208,0.40);
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-feature-settings: 'cv11','ss01','ss03';
+      font-size: 15px;
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+      background-image:
+        radial-gradient(1200px 700px at 15% -10%, rgba(123,160,196,0.22), transparent 60%),
+        radial-gradient(900px 600px at 90% 5%, rgba(159,184,208,0.14), transparent 60%),
+        radial-gradient(1100px 800px at 50% 110%, rgba(90,112,138,0.20), transparent 60%);
+      background-attachment: fixed;
+    }
+
+    a { color: inherit; text-decoration: none; }
+
+    #bg-canvas, #weather-canvas {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+    }
+    #bg-canvas      { z-index: 0; }
+    #weather-canvas { z-index: 1; }
+
+    nav, main, footer { position: relative; z-index: 10; }
+
+    .reveal {
+      opacity: 0;
+      transform: translateY(36px);
+      transition: opacity 0.7s cubic-bezier(.22,1,.36,1),
+                  transform 0.7s cubic-bezier(.22,1,.36,1);
+    }
+    .reveal.visible { opacity: 1; transform: none; }
+
+    .reveal-left {
+      opacity: 0;
+      transform: translateX(-40px);
+      transition: opacity 0.7s cubic-bezier(.22,1,.36,1),
+                  transform 0.7s cubic-bezier(.22,1,.36,1);
+    }
+    .reveal-left.visible { opacity: 1; transform: none; }
+
+    .stagger > * { opacity: 0; transform: translateY(28px);
+      transition: opacity 0.55s cubic-bezier(.22,1,.36,1),
+                  transform 0.55s cubic-bezier(.22,1,.36,1); }
+    .stagger.visible > *:nth-child(1)  { transition-delay: 0.04s; opacity:1; transform:none; }
+    .stagger.visible > *:nth-child(2)  { transition-delay: 0.10s; opacity:1; transform:none; }
+    .stagger.visible > *:nth-child(3)  { transition-delay: 0.16s; opacity:1; transform:none; }
+    .stagger.visible > *:nth-child(4)  { transition-delay: 0.22s; opacity:1; transform:none; }
+    .stagger.visible > *:nth-child(5)  { transition-delay: 0.28s; opacity:1; transform:none; }
+    .stagger.visible > *:nth-child(6)  { transition-delay: 0.34s; opacity:1; transform:none; }
+    .stagger.visible > *:nth-child(7)  { transition-delay: 0.40s; opacity:1; transform:none; }
+    .stagger.visible > *:nth-child(8)  { transition-delay: 0.46s; opacity:1; transform:none; }
+    .stagger.visible > *:nth-child(9)  { transition-delay: 0.52s; opacity:1; transform:none; }
+    .stagger.visible > *:nth-child(10) { transition-delay: 0.58s; opacity:1; transform:none; }
+    .stagger.visible > *:nth-child(11) { transition-delay: 0.64s; opacity:1; transform:none; }
+
+    nav {
+      position: sticky;
+      top: 0;
+      z-index: 200;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 20px;
+      height: 64px;
+      border-bottom: 1px solid var(--border);
+      background: rgba(26,36,48,0.78);
+      backdrop-filter: blur(22px) saturate(130%);
+      -webkit-backdrop-filter: blur(22px) saturate(130%);
+      gap: 12px;
+      transition: box-shadow 0.3s, border-color 0.3s, background 0.3s;
+    }
+    nav.scrolled {
+      background: rgba(18,26,36,0.88);
+      box-shadow: 0 1px 40px rgba(0,0,0,0.35);
+      border-bottom-color: var(--border-hover);
+    }
+
+    #scroll-bar {
+      position: absolute;
+      bottom: -1px; left: 0;
+      height: 2px;
+      width: 0%;
+      background: linear-gradient(90deg, var(--accent), var(--accent-soft), var(--accent-warm));
+      transition: width 0.1s linear;
+    }
+
+    .nav-logo {
+      display: flex; align-items: center; gap: 10px;
+      font-family: 'Akedopikuseru', 'Space Grotesk', 'Inter', sans-serif;
+      font-weight: 600; font-size: 17px; letter-spacing: 2px;
+      flex-shrink: 0;
+      text-transform: uppercase;
+    }
+    .nav-logo .logo-fallback { width:28px; height:28px; display:flex; align-items:center; justify-content:center; }
+    .nav-logo .logo-fallback svg { width:22px; height:22px; }
+
+    .nav-links { display:flex; align-items:center; gap:2px; }
+    .nav-links a {
+      padding: 6px 11px; border-radius: 6px; color: var(--muted);
+      font-size: 13px; transition: color .15s, background .15s;
+      white-space: nowrap; position: relative;
+    }
+    .nav-links a::after {
+      content: ''; position: absolute; bottom: 2px; left: 50%;
+      transform: translateX(-50%) scaleX(0);
+      width: 60%; height: 1px;
+      background: linear-gradient(90deg, var(--accent-soft), var(--accent-warm));
+      transition: transform 0.25s cubic-bezier(.22,1,.36,1);
+    }
+    .nav-links a:hover { color: var(--text-strong); background: rgba(220,231,242,0.06); }
+    .nav-links a:hover::after { transform: translateX(-50%) scaleX(1); }
+
+    .nav-controls { display:flex; align-items:center; gap:6px; flex-shrink:0; }
+
+    .ctrl-btn {
+      width:34px; height:34px; border-radius:7px;
+      border:1px solid var(--border); background:transparent;
+      color:var(--muted); cursor:pointer;
+      display:flex; align-items:center; justify-content:center;
+      transition: color .15s, background .15s, border-color .15s, transform .15s;
+      font-size:16px;
+    }
+    .ctrl-btn:hover { color:var(--text-strong); background:rgba(220,231,242,0.08); border-color:var(--border-hover); transform:scale(1.08); }
+    .ctrl-btn:active { transform: scale(0.94); }
+    .ctrl-btn svg { width:16px; height:16px; }
+    .ctrl-btn.rain-active { color:#8CA4BD; border-color:rgba(140,164,189,0.5); background:rgba(140,164,189,0.12); }
+    .ctrl-btn.snow-active { color:#DCE7F2; border-color:rgba(220,231,242,0.5); background:rgba(220,231,242,0.12); }
+    .ctrl-btn.music-active { color:#B4C9DC; border-color:rgba(180,201,220,0.5); background:rgba(180,201,220,0.12); }
+
+    .nav-btn {
+      padding:8px 16px; border-radius:8px;
+      border:1px solid var(--border-hover); background:transparent;
+      color:var(--text); font-size:13px; font-weight:500;
+      cursor:pointer; display:inline-flex; align-items:center; gap:6px;
+      white-space:nowrap; transition:background .2s, border-color .2s, transform .2s, color .2s;
+      position:relative; overflow:hidden;
+    }
+    .nav-btn::before {
+      content:''; position:absolute; inset:0;
+      background:linear-gradient(135deg, rgba(123,160,196,0.22), rgba(180,201,220,0.16));
+      opacity:0; transition:opacity .25s;
+    }
+    .nav-btn:hover::before { opacity:1; }
+    .nav-btn:hover { border-color: var(--border-strong); color: var(--text-strong); transform:translateY(-1px); }
+    .nav-btn svg { width:13px; height:13px; }
+
+    .hero {
+      min-height: calc(100vh - 60px);
+      display: flex; flex-direction:column;
+      align-items:center; justify-content:center;
+      text-align:center; padding:80px 24px;
+      position:relative;
+    }
+
+    .hero-badge {
+      display:inline-flex; align-items:center; gap:8px;
+      padding:7px 16px; border:1px solid var(--border-hover); border-radius:100px;
+      font-size:12px; color:var(--muted); margin-bottom:32px;
+      background:rgba(220,231,242,0.04); backdrop-filter:blur(10px);
+      letter-spacing:0.3px;
+      opacity:0; animation: fadeUp 0.8s 0.2s cubic-bezier(.22,1,.36,1) forwards;
+    }
+    .dot { width:7px;height:7px;border-radius:50%;background:#B4C9DC;display:inline-block;animation:dotPulse 2.4s infinite; box-shadow: 0 0 10px rgba(180,201,220,0.6); }
+    @keyframes dotPulse { 0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(180,201,220,0.5)} 50%{opacity:.6;box-shadow:0 0 0 6px rgba(180,201,220,0)} }
+
+    .hero h1 {
+      font-family: 'Akedopikuseru', 'Space Grotesk', 'Inter', sans-serif;
+      font-size: clamp(72px, 12vw, 140px);
+      font-weight: 700; letter-spacing: -3px; line-height: 0.95;
+      margin-bottom: 24px;
+      background: linear-gradient(135deg, #F0F6FB 0%, #DCE7F2 45%, #8CA4BD 100%);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      text-shadow: none;
+      opacity:0; animation: fadeUp 0.9s 0.35s cubic-bezier(.22,1,.36,1) forwards;
+    }
+
+    .hero-sub {
+      max-width:560px; color:var(--muted); font-size:16px; line-height:1.75;
+      margin-bottom:40px;
+      opacity:0; animation: fadeUp 0.9s 0.5s cubic-bezier(.22,1,.36,1) forwards;
+    }
+
+    .hero-actions {
+      display:flex; gap:12px; flex-wrap:wrap; justify-content:center;
+      opacity:0; animation: fadeUp 0.9s 0.62s cubic-bezier(.22,1,.36,1) forwards;
+    }
+
+    @keyframes fadeUp {
+      from { opacity:0; transform:translateY(24px); }
+      to   { opacity:1; transform:translateY(0); }
+    }
+
+    .btn-primary {
+      padding:12px 26px; background: linear-gradient(135deg, #DCE7F2, #8CA4BD);
+      color:#0F1620;
+      border-radius:9px; font-size:14px; font-weight:600;
+      display:inline-flex; align-items:center; gap:8px;
+      border:none; cursor:pointer; position:relative; overflow:hidden;
+      transition: transform .25s, box-shadow .25s;
+      box-shadow: 0 4px 18px rgba(220,231,242,0.15), inset 0 1px 0 rgba(255,255,255,0.25);
+    }
+    .btn-primary::after {
+      content:''; position:absolute; inset:0;
+      background:linear-gradient(135deg,transparent 40%,rgba(255,255,255,0.55) 50%,transparent 60%);
+      transform:translateX(-100%); transition:transform 0.6s;
+    }
+    .btn-primary:hover::after { transform:translateX(100%); }
+    .btn-primary:hover { transform:translateY(-2px); box-shadow: 0 10px 34px rgba(220,231,242,0.22), inset 0 1px 0 rgba(255,255,255,0.35); }
+
+    .btn-secondary {
+      padding:12px 26px; background:rgba(220,231,242,0.05);
+      color:var(--text); border:1px solid var(--border-hover);
+      border-radius:9px; font-size:14px; font-weight:500;
+      display:inline-flex; align-items:center; gap:8px;
+      backdrop-filter:blur(10px);
+      transition:background .2s, border-color .2s, transform .25s, box-shadow .25s, color .2s;
+    }
+    .btn-secondary:hover { background:rgba(220,231,242,0.1); border-color: var(--border-strong); color: var(--text-strong); transform:translateY(-2px); box-shadow:0 8px 24px rgba(0,0,0,0.35); }
+
+    .stats {
+      position: relative;
+      display:flex; align-items:stretch;
+      width:100%; max-width:720px; margin-top:72px;
+      border-radius:24px;
+      border:1px solid rgba(255,255,255,0.08);
+      background: rgba(255,255,255,0.05);
+      backdrop-filter: blur(20px) saturate(180%);
+      -webkit-backdrop-filter: blur(20px) saturate(180%);
+      overflow: hidden;
+      opacity:0; animation: fadeUp 0.9s 0.75s cubic-bezier(.22,1,.36,1) forwards;
+      box-shadow: 
+        0 8px 32px rgba(0,0,0,0.3),
+        0 1px 0 rgba(255,255,255,0.1) inset,
+        0 0 0 1px rgba(255,255,255,0.05);
+    }
+    .stats::before {
+      content:''; position:absolute; inset:0; border-radius:24px;
+      background: 
+        linear-gradient(135deg, rgba(255,255,255,0.1) 0%, transparent 30%),
+        linear-gradient(225deg, rgba(99,102,241,0.05) 0%, transparent 50%);
+      pointer-events:none;
+    }
+    .stats::after {
+      content:''; position:absolute; inset:0; border-radius:24px;
+      background: linear-gradient(135deg, 
+        rgba(255,255,255,0.15) 0%, 
+        rgba(255,255,255,0.05) 50%, 
+        rgba(255,255,255,0.02) 100%);
+      pointer-events:none;
+      opacity: 0.8;
+    }
+    .stat {
+      flex:1; display:flex; align-items:center; gap:16px; padding:28px 32px;
+      position:relative; z-index:2;
+      border-right:1px solid rgba(255,255,255,0.08);
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .stat:last-child {
+      border-right: none;
+    }
+    .stat:hover {
+      background: rgba(255,255,255,0.08);
+      transform: translateY(-2px);
+    }
+    .stat:hover .stat-icon { 
+      transform: translateY(-2px) rotate(-3deg); 
+      filter: drop-shadow(0 8px 16px rgba(99,102,241,0.3));
+    }
+    .stat-icon { 
+      width:48px; height:48px; 
+      display:flex; align-items:center; justify-content:center;
+      border-radius:12px;
+      background: rgba(255,255,255,0.08);
+      backdrop-filter: blur(10px);
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .stat-icon svg { 
+      width:24px; height:24px; 
+      color: rgba(255,255,255,0.9);
+    }
+    .stat-body { text-align:left; min-width:0; }
+    .stat-value {
+      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Inter', sans-serif;
+      font-size: 32px; font-weight:700; letter-spacing:-0.5px;
+      line-height: 1.1; margin-bottom:6px;
+      font-variant-numeric: tabular-nums;
+      background: linear-gradient(135deg, #ffffff 0%, #f0f6fb 50%, #dce7f2 100%);
+      -webkit-background-clip:text; background-clip:text;
+      -webkit-text-fill-color:transparent; color:transparent;
+      text-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    .stat-label {
+      font-family: 'Inter', sans-serif;
+      font-size:10.5px; color:var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 1.4px;
+      font-weight: 500;
+    }
+
+    section { padding:96px 24px; }
+    .section-inner { max-width:1100px; margin:0 auto; }
+    .section-header { text-align:center; margin-bottom:64px; }
+    .section-header h2 {
+      font-family: 'Space Grotesk', 'Inter', sans-serif;
+      font-size:clamp(32px,5vw,52px); font-weight:700; letter-spacing:-2px; margin-bottom:12px;
+      background:linear-gradient(135deg, #F0F6FB 0%, #DCE7F2 50%, #8CA4BD 100%);
+      -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+      position:relative; display:inline-block;
+    }
+    .section-header h2::after {
+      content:''; position:absolute; bottom:-8px; left:50%;
+      transform:translateX(-50%);
+      width:0; height:2px;
+      background:linear-gradient(90deg, var(--accent), var(--accent-soft), var(--accent-warm));
+      transition:width 0.8s cubic-bezier(.22,1,.36,1);
+      border-radius:2px;
+    }
+    .section-header.visible h2::after { width:60%; }
+    .section-header p { color:var(--muted); font-size:15px; margin-top:16px; }
+
+    .search-outer { padding:0 0 40px; }
+    .search-box { position:relative; display:flex; align-items:center; }
+    .search-box .s-icon {
+      position:absolute; left:16px; width:18px; height:18px;
+      color:var(--muted); pointer-events:none; flex-shrink:0;
+      transition: color .2s;
+    }
+    #search-input {
+      width:100%; padding:14px 44px 14px 46px;
+      background:rgba(220,231,242,0.04);
+      border:1px solid var(--border); border-radius:12px;
+      color:var(--text); font-size:15px; outline:none;
+      transition:border-color .2s, background .2s, box-shadow .2s;
+      font-family:inherit;
+    }
+    #search-input::placeholder { color:var(--muted); }
+    #search-input:focus {
+      border-color: rgba(220,231,242,0.45);
+      background: rgba(220,231,242,0.06);
+      box-shadow: 0 0 0 3px rgba(140,164,189,0.14);
+    }
+    #search-input:focus ~ .s-icon { color: var(--text-strong); }
+    .search-box:focus-within .s-icon { color: var(--text-strong); }
+    .search-clear {
+      position:absolute; right:12px; width:28px; height:28px;
+      border-radius:6px; border:none; background:rgba(220,231,242,0.10);
+      color:var(--muted); cursor:pointer;
+      display:none; align-items:center; justify-content:center;
+      transition:background .15s, transform .15s;
+    }
+    .search-clear:hover { background:rgba(220,231,242,0.18); color:var(--text-strong); transform:scale(1.1); }
+    .search-clear svg { width:14px; height:14px; }
+    .search-clear.visible { display:flex; }
+    .search-count { text-align:center; font-size:13px; color:var(--muted); margin-top:10px; min-height:20px; }
+
+    .grid-3 {
+      display:grid;
+      grid-template-columns:repeat(auto-fill,minmax(320px,1fr));
+      gap:1px; background:var(--border);
+      border:1px solid var(--border); border-radius:14px; overflow:hidden;
+    }
+
+    .plugin-card {
+      background: rgba(35,49,65,0.72);
+      backdrop-filter:blur(14px);
+      padding:24px; display:flex; flex-direction:column; gap:12px;
+      position:relative; overflow:hidden;
+      transition:background .25s;
+      transform-style:preserve-3d;
+      will-change:transform;
+    }
+    .plugin-card::before {
+      content:''; position:absolute; inset:0;
+      background:linear-gradient(105deg,transparent 40%,rgba(220,231,242,0.06) 50%,transparent 60%);
+      transform:translateX(-100%); pointer-events:none;
+      transition:transform 0.6s;
+    }
+    .plugin-card:hover::before { transform:translateX(100%); }
+    .plugin-card::after {
+      content:''; position:absolute; top:0; left:0; right:0;
+      height:1px;
+      background:linear-gradient(90deg, transparent, rgba(220,231,242,0.5), transparent);
+      opacity:0; transition:opacity .3s;
+    }
+    .plugin-card:hover::after { opacity:1; }
+    .plugin-card:hover { background: rgba(44,60,79,0.85); }
+    .plugin-card.hidden { display:none; }
+
+    .plugin-card-top { display:flex; align-items:center; justify-content:space-between; }
+    .plugin-icon { width:38px; height:38px; border-radius:8px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+    .plugin-icon svg { width:18px; height:18px; color:#fff; }
+    .plugin-badges { display:flex; gap:6px; align-items:center; }
+    .badge { font-size:10px; font-weight:700; letter-spacing:0.5px; padding:3px 8px; border-radius:100px; border:1px solid; }
+    .badge-hot { border-color:rgba(180,201,220,0.6); color:#C9DCEC; background:rgba(180,201,220,0.10); animation:badgePulse 2.5s infinite; }
+    .badge-fixed { border-color:rgba(220,231,242,0.5); color:#DCE7F2; background:rgba(220,231,242,0.08); }
+    .badge-type { border-color:var(--border-hover); color:var(--muted); background:transparent; }
+    @keyframes badgePulse { 0%,100%{box-shadow:0 0 0 0 rgba(180,201,220,0.35)} 50%{box-shadow:0 0 0 5px rgba(180,201,220,0)} }
+
+    .plugin-name { font-family:'Space Grotesk','Inter',sans-serif; font-size:16px; font-weight:600; letter-spacing:-0.3px; }
+    .plugin-desc { font-size:13px; color:var(--muted); line-height:1.55; flex:1; }
+    .plugin-footer { display:flex; align-items:center; justify-content:space-between; padding-top:8px; border-top:1px solid var(--border); }
+    .plugin-version { font-size:12px; color:var(--subtle); font-family:'SF Mono',Menlo,monospace; }
+    .plugin-link { font-size:12px; color:var(--muted); display:inline-flex; align-items:center; gap:4px; transition:color .15s, transform .15s; }
+    .plugin-link:hover { color:var(--text); transform:translateX(2px); }
+    .plugin-link svg { width:12px; height:12px; }
+
+    .no-results { display:none; text-align:center; padding:60px 24px; color:var(--muted); font-size:15px; width:100%; }
+    .no-results.visible { display:block; }
+    .no-results strong { color:var(--text); }
+
+    .tools-grid {
+      display:grid; grid-template-columns:repeat(auto-fill,minmax(400px,1fr));
+      gap:1px; background:var(--border);
+      border:1px solid var(--border); border-radius:14px; overflow:hidden;
+    }
+    .tool-card {
+      background: rgba(35,49,65,0.72); backdrop-filter:blur(14px);
+      padding:32px; transition:background .25s; position:relative; overflow:hidden;
+    }
+    .tool-card::before {
+      content:''; position:absolute; inset:0;
+      background:linear-gradient(105deg,transparent 40%,rgba(220,231,242,0.06) 50%,transparent 60%);
+      transform:translateX(-100%); pointer-events:none; transition:transform 0.6s;
+    }
+    .tool-card:hover::before { transform:translateX(100%); }
+    .tool-card:hover { background: rgba(44,60,79,0.85); }
+    .tool-header { display:flex; align-items:center; gap:14px; margin-bottom:16px; }
+    .tool-icon { width:44px; height:44px; border-radius:10px; display:flex; align-items:center; justify-content:center; }
+    .tool-icon svg { width:20px; height:20px; color:#fff; }
+    .tool-name { font-family:'Space Grotesk','Inter',sans-serif; font-size:17px; font-weight:600; letter-spacing:-0.3px; margin-bottom:2px; }
+    .tool-subtitle { font-size:13px; color:var(--muted); }
+    .tool-desc { color:var(--muted); font-size:14px; margin-bottom:20px; line-height:1.6; }
+    .tool-actions { display:flex; gap:8px; }
+    .btn-sm {
+      padding:8px 16px; border:1px solid var(--border-hover); border-radius:8px;
+      font-size:13px; font-weight:500; display:inline-flex; align-items:center; gap:6px;
+      color:var(--text); background:transparent; cursor:pointer;
+      transition:background .18s, transform .18s, border-color .18s, color .18s;
+    }
+    .btn-sm:hover { background:rgba(220,231,242,0.08); border-color: var(--border-strong); color: var(--text-strong); transform:translateY(-1px); }
+    .btn-sm svg { width:14px; height:14px; }
+
+    .links-strip {
+      display:flex; gap:1px; background:var(--border);
+      border:1px solid var(--border); border-radius:14px; overflow:hidden;
+    }
+    .link-tile {
+      flex:1; padding:28px 24px;
+      background: rgba(35,49,65,0.72); backdrop-filter:blur(14px);
+      display:flex; flex-direction:column; gap:10px;
+      position:relative; overflow:hidden;
+      transition:background .25s, transform .25s;
+    }
+    .link-tile::before {
+      content:''; position:absolute; inset:0;
+      background:linear-gradient(105deg,transparent 40%,rgba(220,231,242,0.06) 50%,transparent 60%);
+      transform:translateX(-100%); pointer-events:none; transition:transform 0.6s;
+    }
+    .link-tile:hover::before { transform:translateX(100%); }
+    .link-tile:hover { background: rgba(44,60,79,0.85); }
+    .link-tile-icon { width:40px; height:40px; border-radius:9px; display:flex; align-items:center; justify-content:center; margin-bottom:4px; }
+    .link-tile-icon svg { width:18px; height:18px; color:#fff; }
+    .link-tile-title { font-family:'Space Grotesk','Inter',sans-serif; font-size:16px; font-weight:600; letter-spacing:-0.3px; }
+    .link-tile-desc { font-size:13px; color:var(--muted); line-height:1.5; }
+    .link-tile-arrow { position:absolute; top:24px; right:24px; color:var(--muted); transition:color .15s, transform .2s; }
+    .link-tile:hover .link-tile-arrow { color:var(--text); transform:translate(3px,-3px); }
+    .link-tile-arrow svg { width:16px; height:16px; }
+
+    .contacts-grid {
+      display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr));
+      gap:1px; background:var(--border);
+      border:1px solid var(--border); border-radius:14px; overflow:hidden;
+    }
+    .contact-card {
+      background: rgba(35,49,65,0.72); backdrop-filter:blur(14px);
+      padding:28px; display:flex; flex-direction:column; gap:8px;
+      position:relative; overflow:hidden; transition:background .25s;
+    }
+    .contact-card::before {
+      content:''; position:absolute; inset:0;
+      background:linear-gradient(105deg,transparent 40%,rgba(220,231,242,0.06) 50%,transparent 60%);
+      transform:translateX(-100%); pointer-events:none; transition:transform 0.6s;
+    }
+    .contact-card:hover::before { transform:translateX(100%); }
+    .contact-card:hover { background: rgba(44,60,79,0.85); }
+    .contact-icon { width:40px; height:40px; border-radius:10px; background: linear-gradient(135deg, rgba(220,231,242,0.12), rgba(123,160,196,0.08)); border:1px solid rgba(220,231,242,0.1); display:flex; align-items:center; justify-content:center; margin-bottom:8px; color: var(--text-strong); }
+    .contact-icon svg { width:18px; height:18px; }
+    .contact-title { font-family:'Space Grotesk','Inter',sans-serif; font-size:16px; font-weight:600; letter-spacing:-0.3px; }
+    .contact-handle { font-size:13px; color:var(--muted); }
+    .contact-arrow { position:absolute; top:24px; right:24px; color:var(--muted); transition:color .15s, transform .2s; }
+    .contact-card:hover .contact-arrow { color:var(--text); transform:translate(3px,-3px); }
+    .contact-arrow svg { width:16px; height:16px; }
+
+    footer {
+      border-top:1px solid var(--border);
+      padding:36px 24px 24px;
+      background: linear-gradient(180deg, rgba(26,36,48,0.55), rgba(18,26,36,0.85));
+      backdrop-filter:blur(18px);
+    }
+    .footer-main {
+      display:flex; align-items:center; justify-content:space-between;
+      flex-wrap:wrap; gap:16px; margin-bottom:20px;
+    }
+    .footer-logo { font-family:'Akedopikuseru', 'Space Grotesk','Inter',sans-serif; font-size:16px; font-weight:600; letter-spacing:2px; text-transform:uppercase; display:flex; align-items:center; gap:8px; }
+    .footer-links { display:flex; gap:20px; }
+    .footer-links-center { justify-content:center; padding: 8px 0 0; flex-wrap:wrap; }
+    .footer-links a { font-size:13px; color:var(--muted); transition:color .15s; }
+    .footer-links a:hover { color:var(--text); }
+    footer .copy { font-size:12px; color:var(--subtle); }
+
+    .footer-signature {
+      text-align:center;
+      padding: 20px 0 8px;
+      font-family: 'Space Grotesk', 'Inter', sans-serif;
+      font-size: 15px;
+      font-weight: 500;
+      font-style: italic;
+      background: linear-gradient(135deg, #F0F6FB, #DCE7F2, #8CA4BD, #B4C9DC);
+      background-size: 300% 300%;
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      animation: gradShift 6s ease infinite;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      opacity: 0.95;
+    }
+    @keyframes gradShift {
+      0%   { background-position: 0% 50%; }
+      50%  { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+
+    .footer-disclaimer {
+      border-top:1px solid var(--border);
+      padding-top:16px; margin-top:16px;
+      text-align:center; font-size:11px; color: rgba(90,112,138,0.8);
+      letter-spacing:0.4px; line-height:1.6; text-transform:uppercase;
+    }
+
+    /* Иконочные градиенты в рамках палитры "Тайна ветра" */
+    .gradient-blue-purple  { background:linear-gradient(135deg, #8CA4BD, #5A708A); }
+    .gradient-green        { background:linear-gradient(135deg, #DCE7F2, #7BA0C4); }
+    .gradient-purple-pink  { background:linear-gradient(135deg, #7BA0C4, #8CA4BD); }
+    .gradient-orange-red   { background:linear-gradient(135deg, #B4C9DC, #5A708A); }
+    .gradient-pink-rose    { background:linear-gradient(135deg, #BACFE0, #7BA0C4); }
+    .gradient-indigo-blue  { background:linear-gradient(135deg, #8CA4BD, #7BA0C4); }
+    .gradient-red-orange   { background:linear-gradient(135deg, #B4C9DC, #7BA0C4); }
+    .gradient-yellow       { background:linear-gradient(135deg, #C9DCEC, #8CA4BD); }
+    .gradient-cyan-blue    { background:linear-gradient(135deg, #DCE7F2, #5A708A); }
+    .gradient-teal         { background:linear-gradient(135deg, #8CA4BD, #B4C9DC); }
+
+    @media (max-width:700px) {
+      .nav-links { display:none; }
+      .stats { 
+        flex-direction:column; 
+        padding:16px; 
+        gap:8px; 
+        border-radius:20px;
+      }
+      .stat { 
+        padding:20px 24px; 
+        border-right: none;
+        border-bottom:1px solid rgba(255,255,255,0.08);
+      }
+      .stat:last-child {
+        border-bottom: none;
+      }
+      .links-strip { flex-direction:column; }
+      .footer-main { flex-direction:column; align-items:flex-start; }
+      .tools-grid { grid-template-columns:1fr; }
+    }
+
+    
+    #toast-container {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      z-index: 10000;
+      pointer-events: none;
+    }
+
+    .toast {
+      background: linear-gradient(135deg, rgba(35,49,65,0.95), rgba(18,26,36,0.95));
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(220,231,242,0.12);
+      border-radius: 12px;
+      padding: 16px 20px;
+      margin-bottom: 12px;
+      min-width: 300px;
+      max-width: 400px;
+      color: var(--text);
+      font-size: 14px;
+      line-height: 1.5;
+      pointer-events: all;
+      transform: translateX(400px);
+      opacity: 0;
+      transition: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+      box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    }
+
+    .toast.show {
+      transform: translateX(0);
+      opacity: 1;
+    }
+
+    .toast.hide {
+      transform: translateX(400px);
+      opacity: 0;
+    }
+
+    .toast.success {
+      border-left: 4px solid #DCE7F2;
+    }
+
+    .toast.error {
+      border-left: 4px solid #B4C9DC;
+    }
+
+    .toast.info {
+      border-left: 4px solid #8CA4BD;
+    }
+
+    .toast.warning {
+      border-left: 4px solid #C9DCEC;
+    }
+
+    .toast-header {
+      display: flex;
+      align-items: center;
+      margin-bottom: 8px;
+      font-weight: 600;
+    }
+
+    .toast-icon {
+      width: 20px;
+      height: 20px;
+      margin-right: 10px;
+      flex-shrink: 0;
+    }
+
+    .toast-close {
+      margin-left: auto;
+      background: none;
+      border: none;
+      color: var(--muted);
+      cursor: pointer;
+      padding: 0;
+      width: 20px;
+      height: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 4px;
+      transition: all 0.2s;
+    }
+
+    .toast-close:hover {
+      background: rgba(220,231,242,0.1);
+      color: var(--text-strong);
+    }
+
+    .toast-message {
+      color: var(--text);
+    }
+
+    .context-menu {
+      position: fixed;
+      background: linear-gradient(135deg, rgba(35,49,65,0.96), rgba(18,26,36,0.96));
+      backdrop-filter: blur(14px);
+      border: 1px solid rgba(220,231,242,0.14);
+      border-radius: 12px;
+      padding: 8px 0;
+      min-width: 200px;
+      z-index: 10001;
+      opacity: 0;
+      transform: scale(0.95);
+      transition: all 0.2s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+      box-shadow: 0 10px 30px rgba(0,0,0,0.55);
+      pointer-events: none;
+    }
+
+    .context-menu.show {
+      opacity: 1;
+      transform: scale(1);
+      pointer-events: all;
+    }
+
+    .context-menu-item {
+      display: flex;
+      align-items: center;
+      padding: 10px 16px;
+      color: var(--text);
+      cursor: pointer;
+      transition: all 0.2s;
+      font-size: 14px;
+    }
+
+    .context-menu-item:hover {
+      background: rgba(220,231,242,0.08);
+      color: var(--text-strong);
+    }
+
+    .context-menu-item svg {
+      margin-right: 12px;
+      flex-shrink: 0;
+    }
+
+    .context-menu-divider {
+      height: 1px;
+      background: rgba(220,231,242,0.12);
+      margin: 4px 0;
+    }
+
+    .nav-btn {
+      position: relative;
+      overflow: hidden;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .nav-btn::before {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 0;
+      height: 0;
+      background: radial-gradient(circle, rgba(220,231,242,0.18) 0%, transparent 70%);
+      transition: all 0.5s;
+      transform: translate(-50%, -50%);
+    }
+
+    .nav-btn:hover::before {
+      width: 100%;
+      height: 100%;
+    }
+
+    .nav-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 25px rgba(123,160,196,0.30);
+    }
+
+    .btn-primary, .btn-secondary {
+      position: relative;
+      overflow: hidden;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .btn-primary::before, .btn-secondary::before {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 0;
+      height: 0;
+      background: radial-gradient(circle, rgba(255,255,255,0.25) 0%, transparent 70%);
+      transition: all 0.6s;
+      transform: translate(-50%, -50%);
+    }
+
+    .btn-primary:hover::before, .btn-secondary:hover::before {
+      width: 120%;
+      height: 120%;
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-3px) scale(1.02);
+      box-shadow: 0 14px 40px rgba(220,231,242,0.28);
+    }
+
+    .btn-secondary:hover {
+      transform: translateY(-3px) scale(1.02);
+      box-shadow: 0 12px 35px rgba(123,160,196,0.20);
+    }
+
+    .plugin-card, .tool-card, .contact-card {
+      position: relative;
+      overflow: hidden;
+    }
+
+    .plugin-card::before, .tool-card::before, .contact-card::before {
+      content: '';
+      position: absolute;
+      top: -50%;
+      left: -50%;
+      width: 200%;
+      height: 200%;
+      background: linear-gradient(45deg, transparent, rgba(220,231,242,0.05), transparent);
+      transform: rotate(45deg) translateX(-100%);
+      transition: transform 0.6s;
+    }
+
+    .plugin-card:hover::before, .tool-card:hover::before, .contact-card:hover::before {
+      transform: rotate(45deg) translateX(100%);
+    }
+
+    .link-tile {
+      position: relative;
+      overflow: hidden;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .link-tile::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(135deg, rgba(220,231,242,0.08) 0%, transparent 100%);
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+
+    .link-tile:hover::after {
+      opacity: 1;
+    }
+
+    .link-tile:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 15px 40px rgba(0,0,0,0.3);
+    }
+
+    .footer-links a {
+      position: relative;
+      transition: all 0.3s;
+    }
+
+    .footer-links a::after {
+      content: '';
+      position: absolute;
+      bottom: -2px;
+      left: 0;
+      width: 0;
+      height: 2px;
+      background: linear-gradient(90deg, var(--accent-soft), var(--accent-warm));
+      transition: width 0.3s;
+    }
+
+    .footer-links a:hover::after {
+      width: 100%;
+    }
+
+    .footer-links a:hover {
+      color: var(--text-strong);
+    }
+
+    .nav-logo {
+      transition: all 0.3s;
+    }
+
+    .nav-logo:hover {
+      transform: scale(1.05);
+    }
+
+    .hero-badge {
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hero-badge::before {
+      content: ''; position: absolute; top: 0; left: -100%;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(220,231,242,0.22), transparent);
+      animation: shimmer 3s infinite;
+    }
+
+    @keyframes shimmer {
+      0% { left: -100%; }
+      100% { left: 100%; }
+    }
+
+    .stat {
+      position: relative;
+      overflow: hidden;
+      transition: background .25s, transform .25s;
+    }
+
+    .stat:hover {
+      transform: translateY(-2px);
+      background: rgba(220,231,242,0.06);
+    }
+
+    .search-box {
+      position: relative;
+      overflow: hidden;
+    }
+
+    .search-box::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: radial-gradient(circle at center, rgba(123,160,196,0.14) 0%, transparent 70%);
+      opacity: 0;
+      transition: opacity 0.3s;
+      pointer-events: none;
+    }
+
+    .search-box:hover::before {
+      opacity: 1;
+    }
+
+    .search-box input:focus + .search-box::before {
+      opacity: 1;
+    }
+
+    section {
+      position: relative;
+      overflow: hidden;
+    }
+
+    section::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(220,231,242,0.03), transparent);
+      transition: left 1.5s ease-out;
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    section.visible::before {
+      left: 100%;
+    }
+
+    .section-inner {
+      position: relative;
+      z-index: 2;
+    }
+
+    .section-header {
+      position: relative;
+      overflow: hidden;
+    }
+
+    .section-header::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      width: 0;
+      height: 2px;
+      background: linear-gradient(90deg, var(--accent), var(--accent-warm));
+      transition: width 1s ease-out 0.3s;
+    }
+
+    .section-header.visible::after {
+      width: 60px;
+    }
+
+    .hero {
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hero::before {
+      content: '';
+      position: absolute;
+      top: -50%;
+      left: -50%;
+      width: 200%;
+      height: 200%;
+      background: radial-gradient(circle at center, rgba(140,164,189,0.08) 0%, transparent 70%);
+      animation: heroPulse 4s ease-in-out infinite;
+      pointer-events: none;
+    }
+
+    @keyframes heroPulse {
+      0%, 100% { transform: scale(1); opacity: 0.5; }
+      50% { transform: scale(1.1); opacity: 0.8; }
+    }
+
+    .stats {
+      position: relative;
+    }
+
+    .stat-value {
+      position: relative;
+      overflow: hidden;
+    }
+
+    .stat-value::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(240,246,251,0.35), transparent);
+      animation: statShimmer 2s ease-out;
+      pointer-events: none;
+    }
+
+    @keyframes statShimmer {
+      0% { left: -100%; }
+      100% { left: 100%; }
+    }
+
+    .plugins-grid {
+      position: relative;
+    }
+
+    .plugin-card {
+      animation: cardSlideIn 0.6s ease-out backwards;
+    }
+
+    .plugin-card:nth-child(1) { animation-delay: 0.1s; }
+    .plugin-card:nth-child(2) { animation-delay: 0.2s; }
+    .plugin-card:nth-child(3) { animation-delay: 0.3s; }
+    .plugin-card:nth-child(4) { animation-delay: 0.4s; }
+    .plugin-card:nth-child(5) { animation-delay: 0.5s; }
+    .plugin-card:nth-child(6) { animation-delay: 0.6s; }
+
+    @keyframes cardSlideIn {
+      from {
+        opacity: 0;
+        transform: translateY(30px) rotateX(-10deg);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0) rotateX(0);
+      }
+    }
+
+    .tools-grid .tool-card {
+      animation: toolSlideIn 0.6s ease-out backwards;
+    }
+
+    .tools-grid .tool-card:nth-child(1) { animation-delay: 0.1s; }
+    .tools-grid .tool-card:nth-child(2) { animation-delay: 0.2s; }
+
+    @keyframes toolSlideIn {
+      from {
+        opacity: 0;
+        transform: translateX(-30px) rotateY(-10deg);
+      }
+      to {
+        opacity: 1;
+        transform: translateX(0) rotateY(0);
+      }
+    }
+
+    .contacts-grid .contact-card {
+      animation: contactSlideIn 0.6s ease-out backwards;
+    }
+
+    .contacts-grid .contact-card:nth-child(1) { animation-delay: 0.1s; }
+    .contacts-grid .contact-card:nth-child(2) { animation-delay: 0.2s; }
+    .contacts-grid .contact-card:nth-child(3) { animation-delay: 0.3s; }
+
+    @keyframes contactSlideIn {
+      from {
+        opacity: 0;
+        transform: scale(0.8) rotateZ(-5deg);
+      }
+      to {
+        opacity: 1;
+        transform: scale(1) rotateZ(0);
+      }
+    }
+
+    .links-strip .link-tile {
+      animation: linkSlideIn 0.6s ease-out backwards;
+    }
+
+    .links-strip .link-tile:nth-child(1) { animation-delay: 0.1s; }
+    .links-strip .link-tile:nth-child(2) { animation-delay: 0.2s; }
+    .links-strip .link-tile:nth-child(3) { animation-delay: 0.3s; }
+
+    @keyframes linkSlideIn {
+      from {
+        opacity: 0;
+        transform: translateY(20px) scale(0.9);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
+    }
+
+    .reveal-left {
+      opacity: 0;
+      transform: translateX(-50px);
+      transition: all 0.8s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    .reveal-left.visible {
+      opacity: 1;
+      transform: translateX(0);
+    }
+
+    .stagger > * {
+      opacity: 0;
+      transform: translateY(20px);
+      transition: all 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    .stagger.visible > * {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .stagger.visible > *:nth-child(1) { transition-delay: 0.1s; }
+    .stagger.visible > *:nth-child(2) { transition-delay: 0.2s; }
+    .stagger.visible > *:nth-child(3) { transition-delay: 0.3s; }
+  </style>
+</head>
+<body>
+
+
+<div id="toast-container"></div>
+
+<div id="context-menu" class="context-menu">
+  <div class="context-menu-item" data-action="copy">
+    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a1 1 0 01-1-1V4a1 1 0 011-1h10a1 1 0 011 1v1"/>
+    </svg>
+    Копировать название
+  </div>
+  <div class="context-menu-item" data-action="download">
+    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 4v12M7 11l5 5 5-5M4 20h16"/>
+    </svg>
+    Скачать плагин
+  </div>
+  <div class="context-menu-item" data-action="share">
+    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="5" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="M8.5 10.5l7-4M8.5 13.5l7 4"/>
+    </svg>
+    Поделиться
+  </div>
+  <div class="context-menu-divider"></div>
+  <div class="context-menu-item" data-action="info">
+    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="9"/><path d="M12 8v0M12 11v5"/>
+    </svg>
+    Информация
+  </div>
+</div>
+
+<canvas id="bg-canvas"></canvas>
+<canvas id="weather-canvas"></canvas>
+
+<audio id="bg-music" loop preload="none">
+  <source src="assets/music/music.mp3" type="audio/mpeg">
+  <source src="assets/music/music.ogg" type="audio/ogg">
+</audio>
+
+<main>
+
+<nav id="navbar">
+  <div id="scroll-bar"></div>
+  <div class="nav-logo">
+    <div class="logo-fallback" id="logo-container">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4L22 20H2z"/></svg>
+    </div>
+    AKY DEV
+  </div>
+
+  <div class="nav-links">
+    <a href="#plugins">Плагины</a>
+    <a href="#tools">Инструменты</a>
+    <a href="#resources">Ресурсы</a>
+    <a href="#contacts">Контакты</a>
+  </div>
+
+  <div class="nav-controls">
+    <button class="ctrl-btn" id="btn-rain" title="Дождь">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M6 15c-2 0-3.5-1.5-3.5-3.5S4 8 6 8c.5-2.3 2.6-4 5.2-4s4.7 1.7 5.2 4c2.3.3 4 2.2 4 4.5s-1.7 4-4 4"/><path d="M8 18l-1 3M12 18l-1 3M16 18l-1 3"/>
+      </svg>
+    </button>
+    <button class="ctrl-btn" id="btn-snow" title="Снег">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 3v18M3 12h18M5.6 5.6l12.8 12.8M18.4 5.6L5.6 18.4"/><circle cx="12" cy="12" r="1" fill="currentColor" stroke="none"/>
+      </svg>
+    </button>
+    <button class="ctrl-btn" id="btn-music" title="Музыка">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="6" cy="18" r="2.5"/><circle cx="17" cy="15" r="2.5"/><path d="M8.5 18V5l11-2v12"/>
+      </svg>
+    </button>
+    <a href="https://t.me/akydevv" target="_blank" class="nav-btn">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"><path d="M21 3L3 10l7 3 2 7 9-17z"/><path d="M10 13l6-6"/></svg>
+      Telegram
+    </a>
+  </div>
+</nav>
+
+<section class="hero">
+  <div class="hero-badge"><span class="dot"></span> Профессиональная разработка плагинов для Minecraft</div>
+  <h1>AKYDEV</h1>
+  <p class="hero-sub">Чистый код, максимальная производительность и надёжность. Студия плагинов нового поколения.</p>
+  <div class="hero-actions">
+    <a href="#plugins" class="btn-primary">
+      Наши плагины
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h15M13 6l6 6-6 6"/></svg>
+    </a>
+    <a href="https://t.me/beuncled" target="_blank" class="btn-secondary">
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"><path d="M21 3L3 10l7 3 2 7 9-17z"/><path d="M10 13l6-6"/></svg>
+      Связаться
+    </a>
+  </div>
+  <div class="stats">
+    <div class="stats-glow"></div>
+    <div class="stat">
+      <div class="stat-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.3-3 3-5 6.5-5s6.2 2 6.5 5"/><circle cx="17" cy="9" r="2.5"/><path d="M21 20c-.2-2-2-3.5-4.5-3.5"/>
+        </svg>
+      </div>
+      <div class="stat-body">
+        <div class="stat-value" data-count="640">0</div>
+        <div class="stat-label">подписчиков</div>
+      </div>
+    </div>
+    <div class="stat-divider"></div>
+    <div class="stat">
+      <div class="stat-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M7 3h7l5 5v12a1 1 0 01-1 1H7a1 1 0 01-1-1V4a1 1 0 011-1z"/><path d="M14 3v5h5M12 12v6M9 15h6"/>
+        </svg>
+      </div>
+      <div class="stat-body">
+        <div class="stat-value" data-count="50" data-suffix="+">0</div>
+        <div class="stat-label">ресурсов создано</div>
+      </div>
+    </div>
+    <div class="stat-divider"></div>
+    <div class="stat">
+      <div class="stat-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6l8-3z"/>
+          <polyline points="9 12 11 14 15 10"/>
+        </svg>
+      </div>
+      <div class="stat-body">
+        <div class="stat-value" data-count="99.9" data-suffix="%" data-float="1">0</div>
+        <div class="stat-label">стабильности</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="plugins">
+  <div class="section-inner">
+    <div class="section-header reveal">
+      <h2>Плагины</h2>
+      <p>Все ресурсы студии AKY DEV</p>
+    </div>
+    <div class="search-outer reveal">
+      <div class="search-box">
+        <svg class="s-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M20 20l-4.5-4.5"/></svg>
+        <input id="search-input" type="text" placeholder="Поиск плагинов... (Ctrl+K)" autocomplete="off" spellcheck="false"/>
+        <button class="search-clear" id="search-clear" title="Очистить">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+        </button>
+      </div>
+      <div class="search-count" id="search-count"></div>
+    </div>
+
+    <div class="grid-3 stagger" id="plugins-grid">
+
+      <div class="plugin-card" data-name="AkyRelog" data-desc="Исправленная система релога с оптимизациями и исправлением утечек памяти.">
+        <div class="plugin-card-top">
+          <div class="plugin-icon gradient-blue-purple"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L4 13.5h7.5L10.5 22 20 10.5h-7.5L13 2z"/></svg></div>
+          <div class="plugin-badges"><span class="badge badge-hot">HOT</span><span class="badge badge-type">plugin</span></div>
+        </div>
+        <div class="plugin-name">AkyRelog</div>
+        <div class="plugin-desc">Исправленная система релога с оптимизациями и исправлением утечек памяти.</div>
+        <div class="plugin-footer">
+          <span class="plugin-version">v2.1.0</span>
+          <a href="https://t.me/akydevv/533" target="_blank" class="plugin-link">Скачать <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7M9 7h8v8"/></svg></a>
+        </div>
+      </div>
+
+      <div class="plugin-card" data-name="AkyLogger" data-desc="Комплексный логгер действий для серверов Paper 1.21.4+ с защитой от спама.">
+        <div class="plugin-card-top">
+          <div class="plugin-icon gradient-green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3h7l5 5v12a1 1 0 01-1 1H7a1 1 0 01-1-1V4a1 1 0 011-1z"/><path d="M14 3v5h5M9 13h7M9 17h5"/></svg></div>
+          <div class="plugin-badges"><span class="badge badge-type">plugin</span></div>
+        </div>
+        <div class="plugin-name">AkyLogger</div>
+        <div class="plugin-desc">Комплексный логгер действий для серверов Paper 1.21.4+ с защитой от спама.</div>
+        <div class="plugin-footer">
+          <span class="plugin-version">v1.5.2</span>
+          <a href="https://t.me/akydevv/533" target="_blank" class="plugin-link">Скачать <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7M9 7h8v8"/></svg></a>
+        </div>
+      </div>
+
+      <div class="plugin-card" data-name="AkyEvents" data-desc="Пак ивентов содержащий AkyBlockEvent FurryBoss и AkyMiniEvents.">
+        <div class="plugin-card-top">
+          <div class="plugin-icon gradient-purple-pink"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 4v10l-8 4-8-4V7l8-4z"/><path d="M4 7l8 4 8-4M12 11v10"/></svg></div>
+          <div class="plugin-badges"><span class="badge badge-type">pack</span></div>
+        </div>
+        <div class="plugin-name">AkyEvents</div>
+        <div class="plugin-desc">Пак ивентов содержащий AkyBlockEvent, FurryBoss и AkyMiniEvents.</div>
+        <div class="plugin-footer">
+          <span class="plugin-version">v3.0.0</span>
+          <a href="https://t.me/akydevv/533" target="_blank" class="plugin-link">Скачать <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7M9 7h8v8"/></svg></a>
+        </div>
+      </div>
+
+      <div class="plugin-card" data-name="AkyAdvancedEnchantments" data-desc="Огромный пак кастомных зачарований для уникального геймплея.">
+        <div class="plugin-card-top">
+          <div class="plugin-icon gradient-orange-red"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L4 13.5h7.5L10.5 22 20 10.5h-7.5L13 2z"/></svg></div>
+          <div class="plugin-badges"><span class="badge badge-type">config</span></div>
+        </div>
+        <div class="plugin-name">AkyAdvancedEnchantments</div>
+        <div class="plugin-desc">Огромный пак кастомных зачарований для уникального геймплея.</div>
+        <div class="plugin-footer">
+          <span class="plugin-version">v1.0.0</span>
+          <a href="https://t.me/akydevv/521" target="_blank" class="plugin-link">Скачать <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7M9 7h8v8"/></svg></a>
+        </div>
+      </div>
+
+      <div class="plugin-card" data-name="AkyBAirDrop" data-desc="Красивые и настроенные эирдроп ивенты с уникальными темами.">
+        <div class="plugin-card-top">
+          <div class="plugin-icon gradient-pink-rose"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 4v10l-8 4-8-4V7l8-4z"/><path d="M4 7l8 4 8-4M12 11v10"/></svg></div>
+          <div class="plugin-badges"><span class="badge badge-type">config</span></div>
+        </div>
+        <div class="plugin-name">AkyBAirDrop</div>
+        <div class="plugin-desc">Красивые и настроенные эирдроп ивенты с уникальными темами.</div>
+        <div class="plugin-footer">
+          <span class="plugin-version">v1.0.0</span>
+          <a href="https://t.me/akydevv/521" target="_blank" class="plugin-link">Скачать <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7M9 7h8v8"/></svg></a>
+        </div>
+      </div>
+
+      <div class="plugin-card" data-name="AkyPrefixPack" data-desc="Огромный пак префиксов для вашей системы прав.">
+        <div class="plugin-card-top">
+          <div class="plugin-icon gradient-indigo-blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 018 0v4"/></svg></div>
+          <div class="plugin-badges"><span class="badge badge-type">config</span></div>
+        </div>
+        <div class="plugin-name">AkyPrefixPack</div>
+        <div class="plugin-desc">Огромный пак префиксов для вашей системы прав.</div>
+        <div class="plugin-footer">
+          <span class="plugin-version">v1.0.0</span>
+          <a href="https://t.me/akydevv/516" target="_blank" class="plugin-link">Скачать <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7M9 7h8v8"/></svg></a>
+        </div>
+      </div>
+
+      <div class="plugin-card" data-name="AntiESP" data-desc="Фиксер ESP функций для версий 1.21.x с эффективной защитой.">
+        <div class="plugin-card-top">
+          <div class="plugin-icon gradient-red-orange"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="2.5"/></svg></div>
+          <div class="plugin-badges"><span class="badge badge-type">plugin</span></div>
+        </div>
+        <div class="plugin-name">AntiESP</div>
+        <div class="plugin-desc">Фиксер ESP функций для версий 1.21.x с эффективной защитой.</div>
+        <div class="plugin-footer">
+          <span class="plugin-version">v1.0.0</span>
+          <a href="https://t.me/akydevv/515" target="_blank" class="plugin-link">Скачать <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7M9 7h8v8"/></svg></a>
+        </div>
+      </div>
+
+      <div class="plugin-card" data-name="AntiHealthIndicator" data-desc="Блокирует все моды Health Indicator для PvP серверов.">
+        <div class="plugin-card-top">
+          <div class="plugin-icon gradient-yellow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6l8-3z"/></svg></div>
+          <div class="plugin-badges"><span class="badge badge-type">plugin</span></div>
+        </div>
+        <div class="plugin-name">AntiHealthIndicator</div>
+        <div class="plugin-desc">Блокирует все моды Health Indicator для PvP серверов.</div>
+        <div class="plugin-footer">
+          <span class="plugin-version">v1.0.0</span>
+          <a href="https://t.me/akydevv/513" target="_blank" class="plugin-link">Скачать <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7M9 7h8v8"/></svg></a>
+        </div>
+      </div>
+
+      <div class="plugin-card" data-name="AkyCaptcha" data-desc="Плагин на капчу с багфиксом и новыми типами капчи.">
+        <div class="plugin-card-top">
+          <div class="plugin-icon gradient-cyan-blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 018 0v4"/></svg></div>
+          <div class="plugin-badges"><span class="badge badge-fixed">FIXED</span><span class="badge badge-type">plugin</span></div>
+        </div>
+        <div class="plugin-name">AkyCaptcha</div>
+        <div class="plugin-desc">Плагин на капчу с багфиксом и новыми типами капчи.</div>
+        <div class="plugin-footer">
+          <span class="plugin-version">v1.0.0</span>
+          <a href="https://t.me/akydevv/507" target="_blank" class="plugin-link">Скачать <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7M9 7h8v8"/></svg></a>
+        </div>
+      </div>
+
+      <div class="no-results" id="no-results">Плагин <strong id="no-results-term"></strong> не найден</div>
+    </div>
+  </div>
+</section>
+
+<section id="tools" style="padding-top:0">
+  <div class="section-inner">
+    <div class="section-header reveal"><h2>Инструменты</h2><p>Утилиты для облегчения разработки</p></div>
+    <div class="tools-grid reveal">
+      <div class="tool-card">
+        <div class="tool-header">
+          <div class="tool-icon gradient-teal"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7l5 5-5 5M12 17h8"/></svg></div>
+          <div><div class="tool-name">AkyYMLfixer</div><div class="tool-subtitle">Утилита для исправления конфигов</div></div>
+        </div>
+        <p class="tool-desc">Позволяет быстро находить и исправлять ошибки в YAML конфигурациях плагинов. Экономит время при настройке сервера.</p>
+        <div class="tool-actions">
+          <a href="https://t.me/akydevv" target="_blank" class="btn-sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v0M12 11v5"/></svg>Подробнее</a>
+          <a href="https://t.me/akydevv" target="_blank" class="btn-sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v12M7 11l5 5 5-5M4 20h16"/></svg>Скачать</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="resources" style="padding-top:0">
+  <div class="section-inner">
+    <div class="section-header reveal"><h2>Ресурсы</h2><p>Полезные ссылки студии</p></div>
+    <div class="links-strip stagger">
+      <a href="https://t.me/crowprices" target="_blank" class="link-tile">
+        <div class="link-tile-icon gradient-indigo-blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18"/><path d="M17 6h-6a3 3 0 000 6h3a3 3 0 010 6H7"/></svg></div>
+        <div class="link-tile-title">Прайс-лист</div>
+        <div class="link-tile-desc">Актуальные цены на услуги и разработку плагинов.</div>
+        <div class="link-tile-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7M9 7h8v8"/></svg></div>
+      </a>
+      <a href="https://t.me/akyotzivi" target="_blank" class="link-tile">
+        <div class="link-tile-icon gradient-green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v12H8l-4 4V4z"/></svg></div>
+        <div class="link-tile-title">Отзывы</div>
+        <div class="link-tile-desc">Реальные отзывы клиентов студии AKY DEV.</div>
+        <div class="link-tile-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7M9 7h8v8"/></svg></div>
+      </a>
+      <a href="https://t.me/akydevv" target="_blank" class="link-tile">
+        <div class="link-tile-icon gradient-purple-pink"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"><path d="M21 3L3 10l7 3 2 7 9-17z"/><path d="M10 13l6-6"/></svg></div>
+        <div class="link-tile-title">Канал студии</div>
+        <div class="link-tile-desc">Все обновления, плагины и новости в одном месте.</div>
+        <div class="link-tile-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7M9 7h8v8"/></svg></div>
+      </a>
+    </div>
+  </div>
+</section>
+
+<section id="contacts" style="padding-top:0">
+  <div class="section-inner">
+    <div class="section-header reveal"><h2>Контакты</h2><p>Свяжитесь с нами напрямую</p></div>
+    <div class="contacts-grid stagger">
+      <a href="https://t.me/beuncled" target="_blank" class="contact-card">
+        <div class="contact-icon"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"><path d="M21 3L3 10l7 3 2 7 9-17z"/><path d="M10 13l6-6"/></svg></div>
+        <div class="contact-title">Разработчик</div>
+        <div class="contact-handle">@beuncled</div>
+        <div class="contact-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7M9 7h8v8"/></svg></div>
+      </a>
+      <a href="https://t.me/akydevv" target="_blank" class="contact-card">
+        <div class="contact-icon"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"><path d="M21 3L3 10l7 3 2 7 9-17z"/><path d="M10 13l6-6"/></svg></div>
+        <div class="contact-title">Студия AKY DEV</div>
+        <div class="contact-handle">@akydevv</div>
+        <div class="contact-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7M9 7h8v8"/></svg></div>
+      </a>
+      <a href="https://t.me/crowprices" target="_blank" class="contact-card">
+        <div class="contact-icon"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18"/><path d="M17 6h-6a3 3 0 000 6h3a3 3 0 010 6H7"/></svg></div>
+        <div class="contact-title">Цены и заказы</div>
+        <div class="contact-handle">@crowprices</div>
+        <div class="contact-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7M9 7h8v8"/></svg></div>
+      </a>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer>
+  <div class="footer-main">
+    <div class="footer-logo">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4L22 20H2z"/></svg>
+      AKY DEV
+    </div>
+    <p class="copy">© 2026 AKY DEV. Minecraft Plugin Studio.</p>
+  </div>
+  <div class="footer-links footer-links-center">
+    <a href="#plugins">Плагины</a>
+    <a href="#tools">Инструменты</a>
+    <a href="https://t.me/akyotzivi" target="_blank">Отзывы</a>
+    <a href="https://t.me/crowprices" target="_blank">Цены</a>
+  </div>
+  <div class="footer-signature">Made by Aky</div>
+  <div class="footer-disclaimer">
+    Не является официальным сервисом Minecraft.&nbsp;
+    Не одобрено и не связано с компанией Mojang или Microsoft.
+  </div>
+</footer>
+
+<script>
+(function(){
+  const C = document.getElementById('bg-canvas');
+  const ctx = C.getContext('2d');
+  let W, H, t = 0;
+
+  const LAYERS = [
+    { amp:0.28, freq:0.0008, speed:0.00012, hue:208, sat:32, lig:50, alpha:0.14 }, /* стальное небо */
+    { amp:0.22, freq:0.0012, speed:0.00018, hue:200, sat:36, lig:46, alpha:0.12 }, /* пасмурный голубой */
+    { amp:0.18, freq:0.0016, speed:0.00022, hue:218, sat:26, lig:42, alpha:0.10 }, /* дождевая синь */
+    { amp:0.15, freq:0.0020, speed:0.00028, hue:190, sat:30, lig:38, alpha:0.08 }, /* холодный циан */
+  ];
+
+  const PARTICLES = [];
+  function spawnParticle(){
+    return { x:Math.random()*W, y:Math.random()*H,
+      r: 0.5+Math.random()*1.5,
+      vx:(Math.random()-.5)*0.15, vy:(Math.random()-.5)*0.12,
+      alpha:0.2+Math.random()*0.5 };
+  }
+
+  function resize(){
+    W = C.width = window.innerWidth;
+    H = C.height = window.innerHeight;
+    PARTICLES.length = 0;
+    for(let i=0;i<120;i++) PARTICLES.push(spawnParticle());
+  }
+
+  function drawAurora(){
+    const base = ctx.createLinearGradient(0,0,0,H);
+    base.addColorStop(0,'#121A24');
+    base.addColorStop(1,'#1A2430');
+    ctx.fillStyle = base;
+    ctx.fillRect(0,0,W,H);
+
+    LAYERS.forEach((l,li)=>{
+      const phase = t * l.speed;
+      ctx.beginPath();
+      ctx.moveTo(0, H);
+      const pts = 80;
+      for(let i=0;i<=pts;i++){
+        const x = (i/pts)*W;
+        const y = H * (0.3 + li*0.08)
+          + Math.sin(x * l.freq + phase) * H * l.amp
+          + Math.sin(x * l.freq * 2.3 + phase * 1.7) * H * l.amp * 0.4
+          + Math.sin(x * l.freq * 0.5 + phase * 0.6) * H * l.amp * 0.6;
+        i===0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
+      }
+      ctx.lineTo(W,H); ctx.closePath();
+      const hShift = Math.sin(t * 0.00005 + li) * 30;
+      const g = ctx.createLinearGradient(0,H*0.1,0,H);
+      g.addColorStop(0,`hsla(${l.hue+hShift},${l.sat}%,${l.lig}%,${l.alpha*1.6})`);
+      g.addColorStop(1,`hsla(${l.hue+hShift+40},${l.sat}%,${l.lig}%,0)`);
+      ctx.fillStyle = g;
+      ctx.fill();
+    });
+  }
+
+  function drawParticles(){
+    PARTICLES.forEach(p=>{
+      p.x += p.vx; p.y += p.vy;
+      if(p.x<0) p.x=W; if(p.x>W) p.x=0;
+      if(p.y<0) p.y=H; if(p.y>H) p.y=0;
+      ctx.beginPath();
+      ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
+      ctx.fillStyle=`rgba(205,222,240,${p.alpha})`;
+      ctx.fill();
+    });
+  }
+
+  function frame(){
+    t++;
+    drawAurora();
+    drawParticles();
+    requestAnimationFrame(frame);
+  }
+
+  window.addEventListener('resize', resize);
+  resize(); frame();
+})();
+
+
+(function(){
+  const C = document.getElementById('weather-canvas');
+  const ctx = C.getContext('2d');
+  let W, H;
+  let mode = 'none'; 
+  let drops=[], flakes=[], raf=null;
+
+  function resize(){
+    W = C.width = window.innerWidth;
+    H = C.height = window.innerHeight;
+  }
+
+  function mkDrop(full){
+    return { x:Math.random()*W, y:full?Math.random()*H:-20,
+      len:10+Math.random()*16, speed:12+Math.random()*10,
+      alpha:0.12+Math.random()*0.28, w:0.5+Math.random()*0.7 };
+  }
+  function initRain(){
+    drops=[];
+    const n=Math.floor(W/5);
+    for(let i=0;i<n;i++) drops.push(mkDrop(true));
+  }
+  function drawRain(){
+    ctx.save(); ctx.lineCap='round';
+    drops.forEach(d=>{
+      d.x += d.speed*0.2; d.y += d.speed;
+      if(d.y>H+20){ Object.assign(d, mkDrop(false)); }
+      ctx.globalAlpha=d.alpha;
+      ctx.strokeStyle='rgba(160,200,255,1)';
+      ctx.lineWidth=d.w;
+      ctx.beginPath();
+      ctx.moveTo(d.x,d.y);
+      ctx.lineTo(d.x+d.len*0.2,d.y+d.len);
+      ctx.stroke();
+    });
+    ctx.restore();
+  }
+
+  function mkFlake(full){
+    return { x:Math.random()*W, y:full?Math.random()*H:-10,
+      r:3+Math.random()*5,
+      speed:0.5+Math.random()*1.2,
+      drift:(Math.random()-.5)*0.4,
+      rot:Math.random()*Math.PI/3,
+      spin:(Math.random()-.5)*0.008,
+      alpha:0.5+Math.random()*0.45,
+      arms:6 };
+  }
+  function initSnow(){
+    flakes=[];
+    const n=Math.floor(W/10);
+    for(let i=0;i<n;i++) flakes.push(mkFlake(true));
+  }
+
+  function drawFlakeShape(x,y,r,rot,alpha){
+    ctx.save();
+    ctx.translate(x,y);
+    ctx.rotate(rot);
+    ctx.globalAlpha=alpha;
+    ctx.strokeStyle='#ddf0ff';
+    ctx.lineWidth=r*0.18;
+    ctx.lineCap='round';
+
+    for(let a=0;a<6;a++){
+      ctx.save();
+      ctx.rotate(a*(Math.PI/3));
+        ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(0,-r); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(0,-r*0.55); ctx.lineTo(r*0.28,-r*0.83); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(0,-r*0.55); ctx.lineTo(-r*0.28,-r*0.83); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(0,-r*0.3); ctx.lineTo(r*0.16,-r*0.46); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(0,-r*0.3); ctx.lineTo(-r*0.16,-r*0.46); ctx.stroke();
+        ctx.beginPath(); ctx.arc(0,-r,r*0.12,0,Math.PI*2); ctx.fillStyle='#ddf0ff'; ctx.fill();
+      ctx.restore();
+    }
+    ctx.beginPath();
+    for(let a=0;a<6;a++){
+      const angle=a*(Math.PI/3)-Math.PI/6;
+      const hx=Math.cos(angle)*r*0.18, hy=Math.sin(angle)*r*0.18;
+      a===0 ? ctx.moveTo(hx,hy) : ctx.lineTo(hx,hy);
+    }
+    ctx.closePath(); ctx.strokeStyle='rgba(200,240,255,0.8)'; ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawSnow(){
+    flakes.forEach(f=>{
+      f.y += f.speed; f.x += f.drift; f.rot += f.spin;
+      if(f.y>H+20){ Object.assign(f,mkFlake(false)); }
+      if(f.x>W+20) f.x=-20; if(f.x<-20) f.x=W+20;
+      drawFlakeShape(f.x,f.y,f.r,f.rot,f.alpha);
+    });
+  }
+
+  function loop(){
+    ctx.clearRect(0,0,W,H);
+    if(mode==='rain') drawRain();
+    else if(mode==='snow') drawSnow();
+    if(mode!=='none') raf=requestAnimationFrame(loop);
+    else raf=null;
+  }
+
+  function setMode(m){
+    mode=m;
+    ctx.clearRect(0,0,W,H);
+    if(m==='rain'){ initRain(); }
+    else if(m==='snow'){ initSnow(); }
+    if(m!=='none' && !raf) raf=requestAnimationFrame(loop);
+  }
+
+  window.addEventListener('resize',()=>{ resize(); if(mode==='rain') initRain(); if(mode==='snow') initSnow(); });
+  resize();
+
+  const btnR=document.getElementById('btn-rain');
+  const btnS=document.getElementById('btn-snow');
+
+  btnR.addEventListener('click',()=>{
+    const next = mode==='rain' ? 'none' : 'rain';
+    setMode(next);
+    btnR.classList.toggle('rain-active', next==='rain');
+    btnS.classList.remove('snow-active');
+  });
+
+  btnS.addEventListener('click',()=>{
+    const next = mode==='snow' ? 'none' : 'snow';
+    setMode(next);
+    btnS.classList.toggle('snow-active', next==='snow');
+    btnR.classList.remove('rain-active');
+  });
+})();
+
+
+(function(){
+  const audio=document.getElementById('bg-music');
+  const btn=document.getElementById('btn-music');
+  audio.volume=0.35;
+  let on=false;
+  btn.addEventListener('click',()=>{
+    if(on){ audio.pause(); on=false; btn.classList.remove('music-active'); }
+    else {
+      audio.play().then(()=>{ on=true; btn.classList.add('music-active'); })
+        .catch(()=>{ console.log('Добавьте assets/music/music.mp3'); });
+    }
+  });
+})();
+
+
+(function(){
+  const exts=['png','svg','webp','jpg'];
+  const c=document.getElementById('logo-container');
+  let i=0;
+  function next(){
+    if(i>=exts.length) return;
+    const img=new Image();
+    img.src=`assets/logo/logo.${exts[i]}`;
+    img.onload=()=>{ img.style.cssText='width:28px;height:28px;border-radius:6px;object-fit:cover;'; c.innerHTML=''; c.appendChild(img); };
+    img.onerror=()=>{ i++; next(); };
+  }
+  next();
+})();
+
+
+(function(){
+  const bar=document.getElementById('scroll-bar');
+  const nav=document.getElementById('navbar');
+  window.addEventListener('scroll',()=>{
+    const max=document.body.scrollHeight-window.innerHeight;
+    bar.style.width=(window.scrollY/max*100)+'%';
+    nav.classList.toggle('scrolled', window.scrollY>20);
+  },{passive:true});
+})();
+
+
+(function(){
+  const io = new IntersectionObserver((entries)=>{
+    entries.forEach(e=>{ if(e.isIntersecting) e.target.classList.add('visible'); });
+  },{ threshold:0.12 });
+
+  document.querySelectorAll('.reveal,.reveal-left,.stagger,.section-header').forEach(el=>io.observe(el));
+})();
+
+
+(function(){
+  const io = new IntersectionObserver((entries)=>{
+    entries.forEach(e=>{
+      if(!e.isIntersecting) return;
+      const el=e.target;
+      const target=parseFloat(el.dataset.count);
+      const suffix=el.dataset.suffix||'';
+      const isFloat=!!el.dataset.float;
+      const dur=1800, start=performance.now();
+      function tick(now){
+        const p=Math.min((now-start)/dur,1);
+        const eased=1-Math.pow(1-p,3);
+        const val=target*eased;
+        el.textContent=(isFloat?val.toFixed(1):Math.floor(val))+suffix;
+        if(p<1) requestAnimationFrame(tick);
+      }
+      requestAnimationFrame(tick);
+      io.unobserve(el);
+    });
+  },{ threshold:0.5 });
+  document.querySelectorAll('[data-count]').forEach(el=>io.observe(el));
+})();
+
+
+(function(){
+  document.querySelectorAll('.plugin-card,.tool-card,.contact-card').forEach(card=>{
+    card.addEventListener('mousemove',e=>{
+      const r=card.getBoundingClientRect();
+      const x=(e.clientX-r.left)/r.width-.5;
+      const y=(e.clientY-r.top)/r.height-.5;
+      card.style.transform=`perspective(600px) rotateY(${x*6}deg) rotateX(${-y*5}deg) scale(1.015)`;
+    });
+    card.addEventListener('mouseleave',()=>{
+      card.style.transform='perspective(600px) rotateY(0deg) rotateX(0deg) scale(1)';
+    });
+  });
+})();
+
+
+(function(){
+  const inp=document.getElementById('search-input');
+  const clr=document.getElementById('search-clear');
+  const cnt=document.getElementById('search-count');
+  const noR=document.getElementById('no-results');
+  const noT=document.getElementById('no-results-term');
+  const cards=[...document.querySelectorAll('.plugin-card[data-name]')];
+  const grid=document.getElementById('plugins-grid');
+
+  function filter(q){
+    q=q.trim().toLowerCase();
+    clr.classList.toggle('visible',q.length>0);
+    let vis=0;
+    cards.forEach(c=>{
+      const m=!q||c.dataset.name.toLowerCase().includes(q)||c.dataset.desc.toLowerCase().includes(q);
+      c.classList.toggle('hidden',!m);
+      if(m) vis++;
+    });
+    cnt.textContent=q?(vis>0?`Найдено: ${vis} из ${cards.length}`:''):'';
+    const none=vis===0&&q.length>0;
+    noR.classList.toggle('visible',none);
+    if(none) noT.textContent=`"${q}"`;
+    grid.style.background=vis>0?'':'transparent';
+    grid.style.border=vis>0?'':'none';
+  }
+
+  inp.addEventListener('input',e=>filter(e.target.value));
+  clr.addEventListener('click',()=>{ inp.value=''; filter(''); inp.focus(); });
+  document.addEventListener('keydown',e=>{
+    if((e.ctrlKey||e.metaKey)&&e.key==='k'){ e.preventDefault(); inp.focus(); inp.select(); }
+    if(e.key==='Escape'&&document.activeElement===inp){ inp.value=''; filter(''); }
+  });
+})();
+
+
+window.showToast = function(message, type = 'info', title = null) {
+  const container = document.getElementById('toast-container');
+  const toast = document.createElement('div');
+  toast.className = `toast ${type}`;
+  
+  const icons = {
+    success: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 10-10"/></svg>',
+    error: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9 9l6 6M15 9l-6 6"/></svg>',
+    info: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>',
+    warning: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3L2 20h20z"/><path d="M12 10v5M12 18v0"/></svg>'
+  };
+  
+  const titles = {
+    success: title || 'Успешно',
+    error: title || 'Ошибка',
+    info: title || 'Информация',
+    warning: title || 'Предупреждение'
+  };
+  
+  toast.innerHTML = `
+    <div class="toast-header">
+      <div class="toast-icon">${icons[type]}</div>
+      <span>${titles[type]}</span>
+      <button class="toast-close">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="18" y1="6" x2="6" y2="18"/>
+          <line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+    <div class="toast-message">${message}</div>
+  `;
+  
+  container.appendChild(toast);
+  
+  const closeBtn = toast.querySelector('.toast-close');
+  closeBtn.addEventListener('click', () => hideToast(toast));
+  
+  setTimeout(() => {
+    toast.classList.add('show');
+  }, 100);
+  
+  const autoHide = setTimeout(() => {
+    hideToast(toast);
+  }, 5000);
+  
+  function hideToast(element) {
+    clearTimeout(autoHide);
+    element.classList.add('hide');
+    setTimeout(() => {
+      if (element.parentNode) {
+        element.parentNode.removeChild(element);
+      }
+    }, 300);
+  }
+};
+
+(function(){
+  const contextMenu = document.getElementById('context-menu');
+  let currentPlugin = null;
+
+  document.addEventListener('contextmenu', (e) => {
+    const pluginCard = e.target.closest('.plugin-card');
+    if (pluginCard) {
+      e.preventDefault();
+      currentPlugin = pluginCard;
+      showContextMenu(e.clientX, e.clientY);
+    }
+  });
+
+  document.addEventListener('click', (e) => {
+    if (!contextMenu.contains(e.target)) {
+      hideContextMenu();
+    }
+  });
+
+  function showContextMenu(x, y) {
+    contextMenu.style.left = x + 'px';
+    contextMenu.style.top = y + 'px';
+    
+    setTimeout(() => {
+      contextMenu.classList.add('show');
+    }, 10);
+  }
+
+  function hideContextMenu() {
+    contextMenu.classList.remove('show');
+  }
+
+  contextMenu.querySelectorAll('.context-menu-item').forEach(item => {
+    item.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const action = item.dataset.action;
+      handleContextAction(action);
+      hideContextMenu();
+    });
+  });
+
+  function handleContextAction(action) {
+    if (!currentPlugin) return;
+    
+    const pluginName = currentPlugin.dataset.name || 'Неизвестный плагин';
+    const pluginLink = currentPlugin.querySelector('.plugin-link');
+    const downloadUrl = pluginLink ? pluginLink.href : '#';
+    
+    switch (action) {
+      case 'copy':
+        navigator.clipboard.writeText(pluginName).then(() => {
+          showToast(`Название "${pluginName}" скопировано в буфер обмена`, 'success');
+        }).catch(() => {
+          showToast('Не удалось скопировать название', 'error');
+        });
+        break;
+        
+      case 'download':
+        if (downloadUrl !== '#') {
+          window.open(downloadUrl, '_blank');
+          showToast(`Загрузка плагина "${pluginName}" начата`, 'success');
+        } else {
+          showToast('Ссылка для загрузки не найдена', 'error');
+        }
+        break;
+        
+      case 'share':
+        if (navigator.share) {
+          navigator.share({
+            title: pluginName,
+            text: `Посмотрите на этот плагин от AKY DEV: ${pluginName}`,
+            url: window.location.href
+          }).then(() => {
+            showToast('Ссылка успешно поделена', 'success');
+          }).catch(() => {
+            copyToClipboard(window.location.href);
+          });
+        } else {
+          copyToClipboard(window.location.href);
+        }
+        break;
+        
+      case 'info':
+        showToast(`Информация о плагине "${pluginName}" будет доступна скоро`, 'info');
+        break;
+    }
+  }
+
+  function copyToClipboard(text) {
+    navigator.clipboard.writeText(text).then(() => {
+      showToast('Ссылка скопирована в буфер обмена', 'success');
+    }).catch(() => {
+      showToast('Не удалось скопировать ссылку', 'error');
+    });
+  }
+})();
+
+(function(){
+  const sections = document.querySelectorAll('section');
+  const sectionObserver = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('visible');
+        
+        const sectionId = entry.target.id;
+        if (sectionId) {
+          updateActiveNavLink(sectionId);
+        }
+      }
+    });
+  }, {
+    threshold: 0.1,
+    rootMargin: '0px 0px -100px 0px'
+  });
+
+  sections.forEach(section => {
+    sectionObserver.observe(section);
+  });
+
+  function updateActiveNavLink(activeSectionId) {
+    const navLinks = document.querySelectorAll('.nav-links a[href^="#"]');
+    navLinks.forEach(link => {
+      const href = link.getAttribute('href').substring(1);
+      if (href === activeSectionId) {
+        link.style.color = 'var(--text-strong)';
+        link.style.transform = 'scale(1.05)';
+      } else {
+        link.style.color = '';
+        link.style.transform = '';
+      }
+    });
+  }
+
+  const smoothScrollLinks = document.querySelectorAll('a[href^="#"]');
+  smoothScrollLinks.forEach(link => {
+    link.addEventListener('click', (e) => {
+      e.preventDefault();
+      const targetId = link.getAttribute('href').substring(1);
+      const targetElement = document.getElementById(targetId);
+      
+      if (targetElement) {
+        const offsetTop = targetElement.offsetTop - 80;
+        
+        window.scrollTo({
+          top: offsetTop,
+          behavior: 'smooth'
+        });
+        
+        targetElement.classList.add('visible');
+      }
+    });
+  });
+
+  let lastScrollTop = 0;
+  let scrollDirection = 'down';
+  
+  window.addEventListener('scroll', () => {
+    const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+    scrollDirection = scrollTop > lastScrollTop ? 'down' : 'up';
+    lastScrollTop = scrollTop;
+    
+    sections.forEach(section => {
+      const rect = section.getBoundingClientRect();
+      const isInViewport = rect.top < window.innerHeight && rect.bottom > 0;
+      
+      if (isInViewport) {
+        const progress = Math.max(0, Math.min(1, 
+          (window.innerHeight - rect.top) / (window.innerHeight + rect.height)
+        ));
+        
+        section.style.setProperty('--scroll-progress', progress);
+      }
+    });
+  });
+
+  document.querySelectorAll('.plugin-card, .tool-card, .contact-card').forEach((card, index) => {
+    card.style.animationDelay = `${index * 0.1}s`;
+  });
+
+  setTimeout(() => {
+    sections.forEach(section => {
+      const rect = section.getBoundingClientRect();
+      if (rect.top < window.innerHeight && rect.bottom > 0) {
+        section.classList.add('visible');
+      }
+    });
+  }, 100);
+})();
+</script>
+
+<script>
+// Защита от копирования и просмотра кода
+(function() {
+  'use strict';
+  
+  // Отключение правого клика
+  document.addEventListener('contextmenu', e => e.preventDefault());
+  
+    
+  // Блокировка горячих клавиш и перезагрузки
+  document.addEventListener('keydown', e => {
+    // F5, F12, Ctrl+Shift+I, Ctrl+Shift+J, Ctrl+U, Ctrl+S, Ctrl+D, Ctrl+R
+    if (e.keyCode === 116 || // F5
+        e.keyCode === 123 || // F12
+        (e.ctrlKey && e.shiftKey && (e.keyCode === 73 || e.keyCode === 74)) || // Ctrl+Shift+I/J
+        (e.ctrlKey && e.keyCode === 85) || // Ctrl+U
+        (e.ctrlKey && e.keyCode === 83) || // Ctrl+S
+        (e.ctrlKey && e.keyCode === 68) || // Ctrl+D
+        (e.ctrlKey && e.keyCode === 82)) { // Ctrl+R
+      e.preventDefault();
+      e.stopPropagation();
+      return false;
+    }
+  });
+
+  // Блокировка перезагрузки через другие способы
+  window.addEventListener('beforeunload', e => {
+    e.preventDefault();
+    e.returnValue = '';
+    return '';
+  });
+
+  // Блокировка перезагрузки через location.reload
+  const originalReload = window.location.reload;
+  window.location.reload = function() {
+    console.log('Перезагрузка заблокирована');
+    return false;
+  };
+
+  // Блокировка перезагрузки через location.href
+  let currentHref = window.location.href;
+  Object.defineProperty(window.location, 'href', {
+    get: function() { return currentHref; },
+    set: function(value) { 
+      if (value !== currentHref) {
+        console.log('Изменение location.href заблокировано');
+        return false;
+      }
+    }
+  });
+  
+  // Защита от DevTools
+  const devtools = /./;
+  devtools.toString = function() {
+    this.opened = true;
+  };
+  
+  const checkDevTools = setInterval(() => {
+    if (devtools.opened) {
+      window.location.reload();
+    }
+    console.log(devtools);
+    console.clear();
+  }, 1000);
+  
+  // Защита от drag & drop
+  document.addEventListener('dragstart', e => e.preventDefault());
+  
+  // Обфускация через изменение DOM
+  const originalHTML = document.documentElement.innerHTML;
+  Object.defineProperty(document, 'documentElement', {
+    get: () => ({ innerHTML: btoa(originalHTML) })
+  });
+  
+})();
+</script>
+</body>
+</html>

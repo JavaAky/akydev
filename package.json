@@ -1,0 +1,32 @@
+{
+  "name": "aky-dev-website",
+  "version": "1.0.0",
+  "description": "AKY DEV - Minecraft Plugin Studio Website",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js",
+    "build": "echo 'Static site - no build needed'",
+    "serve": "node server.js",
+    "start:production": "HOST=0.0.0.0 PORT=15503 node server.js"
+  },
+  "keywords": [
+    "minecraft",
+    "plugins",
+    "aky-dev",
+    "website",
+    "static"
+  ],
+  "author": "AKY DEV",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.18.2",
+    "compression": "^1.7.4",
+    "helmet": "^7.0.0",
+    "cors": "^2.8.5",
+    "morgan": "^1.10.0"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  }
+}
